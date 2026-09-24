@@ -1,89 +1,143 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as authApi from '../api/auth'
+import { ApiError } from '../api/client'
 import { AuthContext } from './auth-context'
 import {
-  clearStoredToken,
-  getTokenExpiry,
-  isTokenValid,
-  readStoredToken,
-  storeToken,
+  clearStoredRefreshToken,
+  readStoredRefreshToken,
+  storeRefreshToken,
 } from './token'
 
-// Lido uma vez, na montagem: token salvo e ainda no prazo vira sessão
-// "checking" (falta buscar o perfil); vencido ou ausente é apagado.
-function initialState() {
-  const stored = readStoredToken()
-  if (isTokenValid(stored)) {
-    return { status: 'checking', token: stored, user: null, sessionExpired: false }
-  }
-  clearStoredToken()
-  return { status: 'anonymous', token: null, user: null, sessionExpired: false }
+export const SESSION_EXPIRED_MESSAGE = 'Sua sessão expirou. Entre de novo para continuar.'
+
+const ANONYMOUS = { status: 'anonymous', user: null, sessionExpired: false }
+
+// Tem refresh token salvo? Então ainda não sabemos se a sessão vale:
+// "checking" até o /refresh responder. Sem ele, anônimo direto.
+function initialSession() {
+  return readStoredRefreshToken() ? { ...ANONYMOUS, status: 'checking' } : ANONYMOUS
 }
 
-const ANONYMOUS = { status: 'anonymous', token: null, user: null, sessionExpired: false }
-
 function AuthProvider({ children }) {
-  // Um objeto só: token, usuário e status mudam sempre juntos. Com
-  // useStates separados daria para existir "status logado sem token".
-  const [session, setSession] = useState(initialState)
+  // O que a TELA precisa (status, nome do usuário) fica em state.
+  const [session, setSession] = useState(initialSession)
 
-  const logout = useCallback(() => {
-    clearStoredToken()
-    setSession(ANONYMOUS)
+  // O token de acesso fica em ref, não em state: quem precisa dele são
+  // as requisições, na hora em que saem — não o desenho da tela. E ref
+  // é lida sempre com o valor mais novo, sem esperar re-render.
+  const accessTokenRef = useRef(null)
+
+  // Single-flight: enquanto um /refresh está no ar, quem mais precisar
+  // de token novo espera ESTA promise em vez de disparar outro refresh.
+  // Dois refresh com o mesmo token = API revoga todas as sessões.
+  const refreshInFlightRef = useRef(null)
+
+  const applyTokens = useCallback(({ token, refreshToken }) => {
+    accessTokenRef.current = token
+    storeRefreshToken(refreshToken)
   }, [])
 
-  // Sessão que acabou sozinha (prazo do token): igual ao logout, mas
-  // marca o motivo para a tela de login explicar o que aconteceu.
-  const expireSession = useCallback(() => {
-    clearStoredToken()
-    setSession({ ...ANONYMOUS, sessionExpired: true })
+  const endSession = useCallback((expired) => {
+    accessTokenRef.current = null
+    clearStoredRefreshToken()
+    setSession({ ...ANONYMOUS, sessionExpired: expired })
   }, [])
 
-  // Recarregou a página com token salvo: busca o perfil para ter o nome.
+  const refreshAccessToken = useCallback(() => {
+    if (!refreshInFlightRef.current) {
+      const refreshToken = readStoredRefreshToken()
+      refreshInFlightRef.current = (
+        refreshToken
+          ? authApi.refresh(refreshToken)
+          : Promise.reject(new ApiError(401, 'Sem refresh token.'))
+      )
+        .then((pair) => {
+          applyTokens(pair)
+          return pair.token
+        })
+        .finally(() => {
+          refreshInFlightRef.current = null
+        })
+    }
+    return refreshInFlightRef.current
+  }, [applyTokens])
+
+  /* Toda chamada autenticada passa por aqui. `call` recebe o token e
+     faz a requisição: request((token) => listTickets(token)).
+
+     401 → pede token novo (uma vez, compartilhado) e repete a chamada.
+     Refresh recusado → sessão encerrada e o erro vira "sessão expirou". */
+  const request = useCallback(
+    async (call) => {
+      let token = accessTokenRef.current
+      if (!token) {
+        try {
+          token = await refreshAccessToken()
+        } catch (error) {
+          if (error.status === 401) endSession(true)
+          throw error.status === 401 ? new ApiError(401, SESSION_EXPIRED_MESSAGE) : error
+        }
+      }
+
+      try {
+        return await call(token)
+      } catch (error) {
+        if (error.status !== 401) throw error
+
+        // Outra requisição já trocou o token enquanto esta estava no ar:
+        // basta repetir com o atual, sem gastar um refresh.
+        if (accessTokenRef.current && accessTokenRef.current !== token) {
+          return call(accessTokenRef.current)
+        }
+
+        let fresh
+        try {
+          fresh = await refreshAccessToken()
+        } catch (refreshError) {
+          if (refreshError.status !== 401) throw refreshError
+          endSession(true)
+          throw new ApiError(401, SESSION_EXPIRED_MESSAGE)
+        }
+        return call(fresh)
+      }
+    },
+    [refreshAccessToken, endSession],
+  )
+
+  // Abriu o site com refresh token salvo: troca por um token de acesso
+  // e busca o perfil. StrictMode roda efeitos duas vezes em dev — o
+  // single-flight garante que isso NÃO vira dois /refresh.
   useEffect(() => {
     if (session.status !== 'checking') return
     let ignore = false
 
-    authApi
-      .getProfile(session.token)
+    request(authApi.getProfile)
       .then((user) => {
-        if (!ignore) setSession((s) => ({ ...s, status: 'authenticated', user }))
+        if (!ignore) setSession({ status: 'authenticated', user, sessionExpired: false })
       })
       .catch((error) => {
-        if (ignore) return
-        if (error.status === 401) {
-          expireSession()
-        } else {
-          // API fora do ar / cold start: o token ainda vale, então a
-          // sessão continua — só fica sem nome para mostrar.
-          setSession((s) => ({ ...s, status: 'authenticated' }))
-        }
+        if (ignore || error.status === 401) return // 401 já encerrou a sessão
+        // API fora do ar: não dá para saber se a sessão vale. Fica
+        // deslogado na tela, mas o refresh token continua salvo para a
+        // próxima visita tentar de novo.
+        setSession(ANONYMOUS)
       })
 
     return () => {
       ignore = true
     }
-  }, [session.status, session.token, expireSession])
+  }, [session.status, request])
 
-  // Logout automático no instante em que o token vence. A API recusa
-  // token vencido sem tolerância (ClockSkew = 0), então esperar o 401
-  // deixaria o usuário clicar em "comprar" e só aí descobrir.
-  useEffect(() => {
-    if (!session.token) return
-    const expiry = getTokenExpiry(session.token)
-    if (expiry === null) return
-
-    const timer = setTimeout(expireSession, Math.max(0, expiry - Date.now()))
-    return () => clearTimeout(timer)
-  }, [session.token, expireSession])
-
-  const login = useCallback(async ({ email, password }) => {
-    const token = await authApi.login({ email, password })
-    const user = await authApi.getProfile(token)
-    storeToken(token)
-    setSession({ status: 'authenticated', token, user, sessionExpired: false })
-    return user
-  }, [])
+  const login = useCallback(
+    async ({ email, password }) => {
+      const pair = await authApi.login({ email, password })
+      applyTokens(pair)
+      const user = await authApi.getProfile(pair.token)
+      setSession({ status: 'authenticated', user, sessionExpired: false })
+      return user
+    },
+    [applyTokens],
+  )
 
   // A API não devolve token no cadastro (201 sem corpo), então logamos
   // em seguida com as mesmas credenciais — o usuário não digita duas vezes.
@@ -95,11 +149,19 @@ function AuthProvider({ children }) {
     [login],
   )
 
+  const logout = useCallback(() => {
+    const refreshToken = readStoredRefreshToken()
+    endSession(false)
+    // Avisa a API para revogar o refresh token. Não espera a resposta:
+    // do ponto de vista do usuário ele já saiu, e /logout sempre dá 204.
+    if (refreshToken) authApi.logout(refreshToken).catch(() => {})
+  }, [endSession])
+
   // useMemo: sem ele, o objeto seria novo a cada render e TODO componente
   // que usa useAuth renderizaria de novo mesmo sem nada ter mudado.
   const value = useMemo(
-    () => ({ ...session, login, logout, register, expireSession }),
-    [session, login, logout, register, expireSession],
+    () => ({ ...session, login, logout, register, request }),
+    [session, login, logout, register, request],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

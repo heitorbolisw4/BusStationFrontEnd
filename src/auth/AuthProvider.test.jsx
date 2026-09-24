@@ -1,22 +1,36 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AuthProvider from './AuthProvider'
 import { useAuth } from './auth-context'
-import { readStoredToken, storeToken } from './token'
+import { readStoredRefreshToken, storeRefreshToken } from './token'
 import * as authApi from '../api/auth'
 import { ApiError } from '../api/client'
-import { makeToken, PROFILE } from '../test/fixtures'
+import { makePair, PROFILE } from '../test/fixtures'
 
 vi.mock('../api/auth', () => ({
   login: vi.fn(),
   register: vi.fn(),
+  refresh: vi.fn(),
+  logout: vi.fn(),
   getProfile: vi.fn(),
 }))
 
+const unauthorized = () => new ApiError(401, 'A API respondeu 401.')
+
+// Promise que o teste resolve quando quiser (simula API lenta).
+function deferred() {
+  let resolve
+  const promise = new Promise((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 // Componente de teste: expõe o estado do contexto em texto e as ações
-// em botões — o teste interage com ele como um usuário faria.
-function Probe() {
+// em botões. `call` é uma "rota protegida" falsa, trocada por teste.
+// O resultado das requisições fica em Probe.results para o teste esperar.
+function Probe({ call }) {
   const auth = useAuth()
   return (
     <div>
@@ -27,120 +41,209 @@ function Probe() {
         login
       </button>
       <button onClick={auth.logout}>logout</button>
+      <button
+        onClick={() => {
+          // Duas requisições autenticadas disparadas no mesmo instante.
+          Probe.results = Promise.allSettled([auth.request(call), auth.request(call)])
+        }}
+      >
+        duas requisições
+      </button>
+      <button onClick={() => (Probe.results = Promise.allSettled([auth.request(call)]))}>
+        uma requisição
+      </button>
     </div>
   )
 }
 
 const text = (id) => screen.getByTestId(id).textContent
 
+// Faz login pela UI e deixa o Provider com o token de acesso "access-1".
+async function renderLoggedIn(call) {
+  vi.mocked(authApi.login).mockResolvedValue(makePair(1))
+  vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+  const user = userEvent.setup()
+  render(
+    <AuthProvider>
+      <Probe call={call} />
+    </AuthProvider>,
+  )
+  await user.click(screen.getByText('login'))
+  await screen.findByText('Maria Souza')
+  return user
+}
+
 describe('AuthProvider', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.mocked(authApi.login).mockReset()
-    vi.mocked(authApi.getProfile).mockReset()
-    vi.mocked(authApi.register).mockReset()
+    for (const fn of Object.values(authApi)) vi.mocked(fn).mockReset()
+    vi.mocked(authApi.logout).mockResolvedValue(null)
+    Probe.results = null
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
+  describe('início da sessão', () => {
+    it('sem refresh token salvo, começa anônimo e não chama a API', () => {
+      render(<AuthProvider><Probe /></AuthProvider>)
+
+      expect(text('status')).toBe('anonymous')
+      expect(authApi.refresh).not.toHaveBeenCalled()
+    })
+
+    it('com refresh token salvo, troca por um par novo e carrega o perfil', async () => {
+      storeRefreshToken('refresh-0')
+      vi.mocked(authApi.refresh).mockResolvedValue(makePair(1))
+      vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+
+      render(<AuthProvider><Probe /></AuthProvider>)
+
+      expect(text('status')).toBe('checking')
+      expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
+      expect(authApi.refresh).toHaveBeenCalledWith('refresh-0')
+      expect(authApi.getProfile).toHaveBeenCalledWith('access-1')
+      // Rotação: o refresh token guardado agora é o novo.
+      expect(readStoredRefreshToken()).toBe('refresh-1')
+    })
+
+    it('refresh token salvo mas recusado (401) → anônimo, com aviso de sessão expirada', async () => {
+      storeRefreshToken('refresh-velho')
+      vi.mocked(authApi.refresh).mockRejectedValue(unauthorized())
+
+      render(<AuthProvider><Probe /></AuthProvider>)
+
+      await vi.waitFor(() => expect(text('status')).toBe('anonymous'))
+      expect(text('expired')).toBe('true')
+      expect(readStoredRefreshToken()).toBeNull()
+    })
+
+    it('API fora do ar ao abrir o site: fica deslogado, mas guarda o refresh token', async () => {
+      storeRefreshToken('refresh-0')
+      vi.mocked(authApi.refresh).mockRejectedValue(new ApiError(0, 'fora do ar'))
+
+      render(<AuthProvider><Probe /></AuthProvider>)
+
+      await vi.waitFor(() => expect(text('status')).toBe('anonymous'))
+      expect(text('expired')).toBe('false')
+      expect(readStoredRefreshToken()).toBe('refresh-0')
+    })
   })
 
-  it('sem token salvo, começa anônimo e não chama a API', () => {
-    render(<AuthProvider><Probe /></AuthProvider>)
+  describe('login e logout', () => {
+    it('login guarda o refresh token e carrega o perfil', async () => {
+      await renderLoggedIn()
 
-    expect(text('status')).toBe('anonymous')
-    expect(authApi.getProfile).not.toHaveBeenCalled()
+      expect(text('status')).toBe('authenticated')
+      expect(readStoredRefreshToken()).toBe('refresh-1')
+      expect(authApi.getProfile).toHaveBeenCalledWith('access-1')
+    })
+
+    it('funciona com a API antiga, que devolve só { token }', async () => {
+      vi.mocked(authApi.login).mockResolvedValue({ token: 'access-antigo' })
+      vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+      const user = userEvent.setup()
+      render(<AuthProvider><Probe /></AuthProvider>)
+
+      await user.click(screen.getByText('login'))
+
+      expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
+      expect(readStoredRefreshToken()).toBeNull()
+    })
+
+    it('logout limpa a sessão e avisa a API com o refresh token', async () => {
+      const user = await renderLoggedIn()
+
+      await user.click(screen.getByText('logout'))
+
+      expect(text('status')).toBe('anonymous')
+      expect(text('expired')).toBe('false') // saiu por vontade própria
+      expect(readStoredRefreshToken()).toBeNull()
+      expect(authApi.logout).toHaveBeenCalledWith('refresh-1')
+    })
   })
 
-  it('com token válido salvo, restaura a sessão buscando o perfil', async () => {
-    const token = makeToken()
-    storeToken(token)
-    vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+  describe('request() — chamadas autenticadas', () => {
+    it('manda o token de acesso atual para a chamada', async () => {
+      const call = vi.fn().mockResolvedValue('ok')
+      const user = await renderLoggedIn(call)
 
-    render(<AuthProvider><Probe /></AuthProvider>)
+      await user.click(screen.getByText('uma requisição'))
 
-    expect(text('status')).toBe('checking')
-    expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
-    expect(text('status')).toBe('authenticated')
-    expect(authApi.getProfile).toHaveBeenCalledWith(token)
-  })
+      const [result] = await Probe.results
+      expect(result).toEqual({ status: 'fulfilled', value: 'ok' })
+      expect(call).toHaveBeenCalledWith('access-1')
+      expect(authApi.refresh).not.toHaveBeenCalled()
+    })
 
-  it('token salvo já vencido é descartado sem ir à API', () => {
-    storeToken(makeToken({ expiresInSeconds: -1 }))
+    // Critério do FEAT-025: refresh com sucesso → retry.
+    it('401 → faz refresh e repete a chamada com o token novo', async () => {
+      const call = vi.fn((token) =>
+        token === 'access-2' ? Promise.resolve('ok') : Promise.reject(unauthorized()),
+      )
+      vi.mocked(authApi.refresh).mockResolvedValue(makePair(2))
+      const user = await renderLoggedIn(call)
 
-    render(<AuthProvider><Probe /></AuthProvider>)
+      await user.click(screen.getByText('uma requisição'))
 
-    expect(text('status')).toBe('anonymous')
-    expect(readStoredToken()).toBeNull()
-    expect(authApi.getProfile).not.toHaveBeenCalled()
-  })
+      const [result] = await Probe.results
+      expect(result).toEqual({ status: 'fulfilled', value: 'ok' })
+      expect(authApi.refresh).toHaveBeenCalledWith('refresh-1')
+      expect(call.mock.calls.map(([t]) => t)).toEqual(['access-1', 'access-2'])
+      expect(readStoredRefreshToken()).toBe('refresh-2')
+      expect(text('status')).toBe('authenticated')
+    })
 
-  it('se a API recusar o token salvo (401), encerra a sessão como expirada', async () => {
-    storeToken(makeToken())
-    vi.mocked(authApi.getProfile).mockRejectedValue(new ApiError(401, 'A API respondeu 401.'))
+    // Critério do FEAT-025: refresh falhando → login com mensagem.
+    it('401 e refresh recusado → encerra a sessão como expirada', async () => {
+      const call = vi.fn().mockRejectedValue(unauthorized())
+      vi.mocked(authApi.refresh).mockRejectedValue(unauthorized())
+      const user = await renderLoggedIn(call)
 
-    render(<AuthProvider><Probe /></AuthProvider>)
+      await user.click(screen.getByText('uma requisição'))
 
-    await vi.waitFor(() => expect(text('status')).toBe('anonymous'))
-    expect(text('expired')).toBe('true')
-    expect(readStoredToken()).toBeNull()
-  })
+      const [result] = await Probe.results
+      expect(result.status).toBe('rejected')
+      expect(result.reason.message).toMatch(/Sua sessão expirou/)
+      await vi.waitFor(() => expect(text('status')).toBe('anonymous'))
+      expect(text('expired')).toBe('true')
+      expect(readStoredRefreshToken()).toBeNull()
+    })
 
-  it('se a API estiver fora do ar, mantém a sessão (o token ainda vale)', async () => {
-    const token = makeToken()
-    storeToken(token)
-    vi.mocked(authApi.getProfile).mockRejectedValue(new ApiError(0, 'fora do ar'))
+    // Critério do FEAT-025: dois 401 simultâneos → um único /refresh.
+    // Dois /refresh com o mesmo token fariam a API revogar TODAS as sessões.
+    it('duas chamadas com 401 ao mesmo tempo disparam UM refresh só', async () => {
+      const refresh = deferred()
+      vi.mocked(authApi.refresh).mockReturnValue(refresh.promise)
+      const call = vi.fn((token) =>
+        token === 'access-2' ? Promise.resolve(`ok ${token}`) : Promise.reject(unauthorized()),
+      )
+      const user = await renderLoggedIn(call)
 
-    render(<AuthProvider><Probe /></AuthProvider>)
+      await user.click(screen.getByText('duas requisições'))
+      // Deixa as duas chegarem ao 401 e ficarem esperando o refresh.
+      await vi.waitFor(() => expect(authApi.refresh).toHaveBeenCalled())
+      refresh.resolve(makePair(2))
 
-    await vi.waitFor(() => expect(text('status')).toBe('authenticated'))
-    expect(text('user')).toBe('-')
-    expect(readStoredToken()).toBe(token)
-  })
+      const results = await Probe.results
+      expect(results.map((r) => r.value)).toEqual(['ok access-2', 'ok access-2'])
+      expect(authApi.refresh).toHaveBeenCalledTimes(1)
+    })
 
-  it('login guarda o token e carrega o perfil; logout apaga tudo', async () => {
-    const token = makeToken()
-    vi.mocked(authApi.login).mockResolvedValue(token)
-    vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
-    const user = userEvent.setup()
-    render(<AuthProvider><Probe /></AuthProvider>)
+    it('erro que não é 401 passa direto, sem refresh', async () => {
+      const call = vi.fn().mockRejectedValue(new ApiError(400, 'Dont have seats'))
+      const user = await renderLoggedIn(call)
 
-    await user.click(screen.getByText('login'))
+      await user.click(screen.getByText('uma requisição'))
 
-    expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
-    expect(readStoredToken()).toBe(token)
-
-    await user.click(screen.getByText('logout'))
-
-    expect(text('status')).toBe('anonymous')
-    expect(text('expired')).toBe('false') // saiu por vontade própria
-    expect(readStoredToken()).toBeNull()
-  })
-
-  // A API emite token de 5 minutos, sem tolerância de relógio.
-  it('encerra a sessão sozinho no instante em que o token vence', async () => {
-    vi.useFakeTimers()
-    const token = makeToken({ expiresInSeconds: 300 })
-    storeToken(token)
-    vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
-
-    render(<AuthProvider><Probe /></AuthProvider>)
-    await act(async () => {}) // deixa o perfil carregar
-    expect(text('status')).toBe('authenticated')
-
-    act(() => vi.advanceTimersByTime(299_000))
-    expect(text('status')).toBe('authenticated')
-
-    act(() => vi.advanceTimersByTime(1_000))
-    expect(text('status')).toBe('anonymous')
-    expect(text('expired')).toBe('true')
-    expect(readStoredToken()).toBeNull()
+      const [result] = await Probe.results
+      expect(result.reason.message).toBe('Dont have seats')
+      expect(authApi.refresh).not.toHaveBeenCalled()
+      expect(text('status')).toBe('authenticated')
+    })
   })
 
   it('useAuth fora do Provider falha com mensagem clara', () => {
     // O React loga o erro no console antes de relançar; silenciamos só aqui.
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => render(<Probe />)).toThrow(/dentro de <AuthProvider>/)
-    vi.restoreAllMocks()
+    spy.mockRestore()
   })
 })

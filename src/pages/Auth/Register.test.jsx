@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import * as authApi from '../../api/auth'
 import { ApiError } from '../../api/client'
-import { readStoredToken } from '../../auth/token'
-import { makeToken, PROFILE } from '../../test/fixtures'
+import { readStoredRefreshToken } from '../../auth/token'
+import { makePair, PROFILE } from '../../test/fixtures'
 import { renderWithApp } from '../../test/renderWithApp'
 
 vi.mock('../../api/auth', () => ({
   login: vi.fn(),
   register: vi.fn(),
+  refresh: vi.fn(),
+  logout: vi.fn(),
   getProfile: vi.fn(),
 }))
 
@@ -31,9 +33,8 @@ describe('Register', () => {
   })
 
   it('cria a conta, já entra logado e volta para a página inicial', async () => {
-    const token = makeToken()
     vi.mocked(authApi.register).mockResolvedValue(null)
-    vi.mocked(authApi.login).mockResolvedValue(token)
+    vi.mocked(authApi.login).mockResolvedValue(makePair())
     vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
     const { user, currentPath } = renderWithApp({ route: '/cadastro' })
 
@@ -49,7 +50,7 @@ describe('Register', () => {
       age: 30,
     })
     expect(authApi.login).toHaveBeenCalledWith({ email: 'maria@example.com', password: '123456' })
-    expect(readStoredToken()).toBe(token)
+    expect(readStoredRefreshToken()).toBe('refresh-1')
   })
 
   it('e-mail já cadastrado (409) aparece embaixo do campo de e-mail', async () => {

@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import * as authApi from '../../api/auth'
 import { ApiError } from '../../api/client'
-import { storeToken } from '../../auth/token'
-import { makeToken, PROFILE } from '../../test/fixtures'
+import { storeRefreshToken } from '../../auth/token'
+import { makePair, PROFILE } from '../../test/fixtures'
 import { renderWithApp } from '../../test/renderWithApp'
 
 vi.mock('../../api/auth', () => ({
   login: vi.fn(),
   register: vi.fn(),
+  refresh: vi.fn(),
+  logout: vi.fn(),
   getProfile: vi.fn(),
 }))
 
@@ -26,7 +28,7 @@ describe('Login', () => {
   })
 
   it('entra e volta para a página inicial', async () => {
-    vi.mocked(authApi.login).mockResolvedValue(makeToken())
+    vi.mocked(authApi.login).mockResolvedValue(makePair())
     vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
     const { user, currentPath } = renderWithApp({ route: '/entrar' })
 
@@ -39,7 +41,7 @@ describe('Login', () => {
   })
 
   it('volta para a página de origem quando veio redirecionado', async () => {
-    vi.mocked(authApi.login).mockResolvedValue(makeToken())
+    vi.mocked(authApi.login).mockResolvedValue(makePair())
     vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
     const { user, currentPath } = renderWithApp({
       route: '/entrar',
@@ -96,7 +98,8 @@ describe('Login', () => {
   })
 
   it('quem já está logado é mandado embora de /entrar', async () => {
-    storeToken(makeToken())
+    storeRefreshToken('refresh-0')
+    vi.mocked(authApi.refresh).mockResolvedValue(makePair())
     vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
     const { currentPath } = renderWithApp({ route: '/entrar' })
 
@@ -106,8 +109,9 @@ describe('Login', () => {
 
   // Critério 4 do FEAT-025: 401 → login com mensagem.
   it('explica quando a sessão expirou', async () => {
-    storeToken(makeToken())
-    vi.mocked(authApi.getProfile).mockRejectedValue(new ApiError(401, ''))
+    // Refresh token vencido/revogado: a API recusa o /refresh.
+    storeRefreshToken('refresh-velho')
+    vi.mocked(authApi.refresh).mockRejectedValue(new ApiError(401, ''))
     renderWithApp({ route: '/entrar' })
 
     expect(await screen.findByText(/Sua sessão expirou/)).toBeInTheDocument()

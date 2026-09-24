@@ -1,41 +1,23 @@
 /* =========================================================
-   Token JWT no navegador.
+   Onde cada token mora no navegador.
 
-   O front NÃO valida o token — quem valida (assinatura, emissor)
-   é a API. Aqui só lemos o `exp` do payload para saber quando a
-   sessão acaba, sem precisar esperar um 401 para descobrir.
+   - Token de ACESSO (vale ~15 min): só em memória, dentro do
+     AuthProvider. Some ao recarregar a página — de propósito.
+   - REFRESH token (vale dias): localStorage, para a sessão sobreviver
+     a recarregar/fechar a aba. Ao abrir o site, ele é trocado por um
+     token de acesso novo em POST /refresh.
 
-   Onde guardar: localStorage sobrevive a recarregar a página, mas
-   qualquer script rodando no site consegue lê-lo (risco de XSS).
-   A alternativa segura é cookie HttpOnly, que exige mudança na API.
-   Para o projeto de estudo, localStorage + expiração curta basta.
+   Risco conhecido: qualquer script rodando no site lê o localStorage
+   (XSS). O ideal seria cookie HttpOnly, mas cookie entre vercel.app e
+   railway.app é bloqueado como "de terceiros" pelos navegadores.
+   Decisão registrada no ARCHITECTURE §7 da API; aceito para staging.
    ========================================================= */
 
-const STORAGE_KEY = 'busstation.token'
-
-// Devolve o instante de expiração em milissegundos, ou null se o token
-// não tiver formato de JWT. Um JWT é "header.payload.assinatura", e o
-// payload é JSON em base64url (base64 com - e _ no lugar de + e /).
-export function getTokenExpiry(token) {
-  try {
-    const payload = token.split('.')[1]
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const { exp } = JSON.parse(atob(base64))
-    return typeof exp === 'number' ? exp * 1000 : null
-  } catch {
-    return null
-  }
-}
-
-export function isTokenValid(token, now = Date.now()) {
-  if (!token) return false
-  const expiry = getTokenExpiry(token)
-  return expiry !== null && expiry > now
-}
+const STORAGE_KEY = 'busstation.refreshToken'
 
 // Acesso ao storage sempre dentro de try: em aba anônima ou com
 // cookies bloqueados, o navegador pode lançar exceção só de tocar nele.
-export function readStoredToken() {
+export function readStoredRefreshToken() {
   try {
     return localStorage.getItem(STORAGE_KEY)
   } catch {
@@ -43,15 +25,17 @@ export function readStoredToken() {
   }
 }
 
-export function storeToken(token) {
+export function storeRefreshToken(refreshToken) {
   try {
-    localStorage.setItem(STORAGE_KEY, token)
+    // API antiga não manda refresh token: não há o que guardar.
+    if (refreshToken) localStorage.setItem(STORAGE_KEY, refreshToken)
+    else localStorage.removeItem(STORAGE_KEY)
   } catch {
     // Sem storage a sessão só dura até recarregar a página. Aceitável.
   }
 }
 
-export function clearStoredToken() {
+export function clearStoredRefreshToken() {
   try {
     localStorage.removeItem(STORAGE_KEY)
   } catch {

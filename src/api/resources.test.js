@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiFetch } from './client'
 import { listCities } from './cities'
 import { searchBoardings } from './boardings'
-import { getProfile, login, register } from './auth'
+import { getProfile, login, logout, refresh, register } from './auth'
 
 // Aqui só interessa se cada função monta a rota certa — o comportamento
 // HTTP já é coberto em client.test.js. Por isso o apiFetch vira um dublê.
@@ -46,13 +46,28 @@ describe('funções de recurso da API', () => {
     })
   })
 
-  it('login faz POST /login e devolve só o token', async () => {
-    apiFetch.mockResolvedValue({ token: 'jwt' })
+  it('login faz POST /login e devolve o par de tokens', async () => {
+    const pair = { token: 'a', refreshToken: 'r', expiresIn: 900 }
+    apiFetch.mockResolvedValue(pair)
 
-    await expect(login({ email: 'm@x.com', password: '123456' })).resolves.toBe('jwt')
+    await expect(login({ email: 'm@x.com', password: '123456' })).resolves.toEqual(pair)
     expect(apiFetch).toHaveBeenCalledWith('/login', {
       method: 'POST',
       body: JSON.stringify({ email: 'm@x.com', password: '123456' }),
+    })
+  })
+
+  it('refresh e logout mandam o refresh token no corpo', async () => {
+    await refresh('r1')
+    await logout('r2')
+
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: 'r1' }),
+    })
+    expect(apiFetch).toHaveBeenNthCalledWith(2, '/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: 'r2' }),
     })
   })
 
