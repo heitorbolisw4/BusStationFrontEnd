@@ -5,13 +5,40 @@ import react from '@vitejs/plugin-react'
 // URL tem que vir do ambiente (painel do Vercel, ou env do CI). Sem esta
 // checagem, esquecer a variável gera um bundle que chama "undefined/cities"
 // — e o erro só aparece no navegador de quem abrir o site.
+//
+// Precisa ser URL absoluta https e alcançável pelo NAVEGADOR do usuário:
+// - sem "https://", o fetch trata o valor como caminho relativo e bate no
+//   próprio Vercel (404);
+// - hosts de rede privada (*.railway.internal, *.internal) só existem
+//   dentro do provedor — o navegador não resolve.
+// Os dois casos já aconteceram no primeiro deploy.
+function findApiUrlProblem(url) {
+  if (!url) return 'está vazia'
+
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch {
+    return 'não é uma URL absoluta (faltou o "https://"?)'
+  }
+
+  if (parsed.protocol !== 'https:') return 'precisa começar com https://'
+  if (/^(localhost|127\.0\.0\.1)$/.test(parsed.hostname)) return 'aponta para localhost'
+  if (parsed.hostname.endsWith('.internal')) {
+    return 'é um host de rede privada, inacessível pelo navegador — use o domínio público'
+  }
+  if (url.endsWith('/')) return 'não pode terminar com "/" (o código já monta "/cities/list")'
+  return null
+}
+
 function assertProductionApiUrl(command, mode) {
   if (command !== 'build' || mode !== 'production') return
 
   const url = loadEnv(mode, process.cwd(), 'VITE_').VITE_API_URL
-  if (!url || /localhost|127\.0\.0\.1/.test(url)) {
+  const problem = findApiUrlProblem(url)
+  if (problem) {
     throw new Error(
-      `VITE_API_URL inválida para build de produção: "${url ?? ''}". ` +
+      `VITE_API_URL inválida para build de produção: "${url ?? ''}" ${problem}. ` +
         'Defina a URL pública da API (ex.: nas Environment Variables do Vercel).',
     )
   }
