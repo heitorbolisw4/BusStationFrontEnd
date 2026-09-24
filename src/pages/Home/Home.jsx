@@ -3,7 +3,11 @@ import SearchCard from '../../components/SearchCard/SearchCard'
 import DepartureBoard from '../../components/DepartureBoard/DepartureBoard'
 import { listCities } from '../../api/cities'
 import { searchBoardings } from '../../api/boardings'
+import { useSlowFlag } from '../../hooks/useSlowFlag'
 import styles from './Home.module.css'
+
+const SLOW_MESSAGE =
+  'O servidor está acordando — a primeira consulta do dia pode levar até 1 minuto.'
 
 function Home() {
   const [cities, setCities] = useState([])
@@ -23,6 +27,11 @@ function Home() {
   // useRef guarda um valor entre renders SEM causar re-render quando muda —
   // é o lugar certo para controle interno que a tela não exibe.
   const searchIdRef = useRef(0)
+
+  // Cold start da API em staging: depois de alguns segundos em "carregando",
+  // a tela explica a demora em vez de parecer travada.
+  const citiesSlow = useSlowFlag(status === 'loading')
+  const searchSlow = useSlowFlag(searchStatus === 'loading')
 
   useEffect(() => {
     // Trava contra resposta atrasada: se o componente sair da tela
@@ -83,7 +92,12 @@ function Home() {
   // Evita ternário aninhado no meio da marcação.
   function renderSearchArea() {
     if (status === 'loading') {
-      return <p className={styles.slotCard}>Carregando cidades…</p>
+      return (
+        // role="status" faz o leitor de tela anunciar quando o texto muda.
+        <p className={styles.slotCard} role="status">
+          {citiesSlow ? SLOW_MESSAGE : 'Carregando cidades…'}
+        </p>
+      )
     }
 
     if (status === 'error') {
@@ -147,6 +161,7 @@ function Home() {
         departures={departures}
         status={searchStatus}
         errorMessage={searchError}
+        loadingMessage={searchSlow ? SLOW_MESSAGE : undefined}
       />
     </>
   )

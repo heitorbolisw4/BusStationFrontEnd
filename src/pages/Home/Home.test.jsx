@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Home from './Home'
 import { listCities } from '../../api/cities'
@@ -66,6 +66,28 @@ describe('Home', () => {
       expect(listCities).toHaveBeenCalledTimes(2)
     })
 
+    it('depois de 5s carregando, explica o cold start em vez de parecer travado', async () => {
+      // Relógio falso: não dá para esperar 5 segundos de verdade num teste.
+      vi.useFakeTimers()
+      try {
+        const cities = deferred()
+        listCities.mockReturnValue(cities.promise)
+        render(<Home />)
+
+        act(() => vi.advanceTimersByTime(4999))
+        expect(screen.getByRole('status')).toHaveTextContent('Carregando cidades…')
+
+        act(() => vi.advanceTimersByTime(1))
+        expect(screen.getByRole('status')).toHaveTextContent(/servidor está acordando/)
+
+        await act(async () => cities.resolve(CITIES))
+        expect(screen.getByLabelText('Origem')).toBeInTheDocument()
+        expect(screen.queryByText(/servidor está acordando/)).not.toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('com menos de duas cidades, explica que a busca não é possível', async () => {
       listCities.mockResolvedValue([CITIES[0]])
 
@@ -112,6 +134,29 @@ describe('Home', () => {
       search.resolve([])
       expect(await screen.findByText(/Nenhuma saída para esse trecho/)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Buscar horários' })).toBeEnabled()
+    })
+
+    it('busca demorada troca "Procurando saídas…" pelo aviso de cold start', async () => {
+      const search = deferred()
+      searchBoardings.mockReturnValue(search.promise)
+      await renderReadyHome()
+
+      // O timer do aviso nasce no clique, então o relógio falso liga antes dele.
+      // fireEvent (e não userEvent) porque o userEvent espera timers reais.
+      vi.useFakeTimers()
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Buscar horários' }))
+        expect(screen.getByText('Procurando saídas…')).toBeInTheDocument()
+
+        act(() => vi.advanceTimersByTime(5000))
+        expect(screen.getByText(/servidor está acordando/)).toBeInTheDocument()
+
+        await act(async () => search.resolve([makeDeparture()]))
+        expect(screen.getByText('05:40')).toBeInTheDocument()
+        expect(screen.queryByText(/servidor está acordando/)).not.toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('mostra o erro da busca sem derrubar o formulário', async () => {

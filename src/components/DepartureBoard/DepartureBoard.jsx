@@ -16,7 +16,12 @@ function hourAndMinute(time) {
 // O componente não busca nada: recebe o resultado pronto e o estado da
 // busca. Quem chama a API é a Home. Assim este arquivo continua sendo
 // só "como isto aparece na tela", e dá para testá-lo sem servidor.
-function DepartureBoard({ departures, status, errorMessage }) {
+function DepartureBoard({
+  departures,
+  status,
+  errorMessage,
+  loadingMessage = 'Procurando saídas…',
+}) {
   function renderBody() {
     if (status === 'idle') {
       return (
@@ -27,7 +32,11 @@ function DepartureBoard({ departures, status, errorMessage }) {
     }
 
     if (status === 'loading') {
-      return <p className={styles.state}>Procurando saídas…</p>
+      return (
+        <p className={styles.state} role="status">
+          {loadingMessage}
+        </p>
+      )
     }
 
     if (status === 'error') {

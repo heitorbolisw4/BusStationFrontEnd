@@ -18,7 +18,12 @@ describe('DepartureBoard', () => {
 
   it('mostra mensagem de carregamento', () => {
     renderBoard({ status: 'loading' })
-    expect(screen.getByText('Procurando saídas…')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Procurando saídas…')
+  })
+
+  it('usa a mensagem de carregamento recebida por prop (aviso de cold start)', () => {
+    renderBoard({ status: 'loading', loadingMessage: 'O servidor está acordando' })
+    expect(screen.getByRole('status')).toHaveTextContent('O servidor está acordando')
   })
 
   it('mostra o erro como alerta acessível', () => {
