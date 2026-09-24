@@ -5,6 +5,7 @@ import Home from './pages/Home/Home'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import NotFound from './pages/NotFound/NotFound'
+import Tickets from './pages/Tickets/Tickets'
 
 // App é o "layout": Header e Footer aparecem em toda página; o miolo
 // troca conforme a URL. As rotas ficam em português porque são o que
@@ -18,6 +19,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
+          <Route path="/minhas-passagens" element={<Tickets />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

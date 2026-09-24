@@ -30,6 +30,10 @@ describe('Header', () => {
     const auth = renderHeader({ status: 'authenticated', user: PROFILE })
 
     expect(screen.getByText('Olá, Maria')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Minhas passagens' })).toHaveAttribute(
+      'href',
+      '/minhas-passagens',
+    )
     expect(screen.queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument()
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Sair' }))

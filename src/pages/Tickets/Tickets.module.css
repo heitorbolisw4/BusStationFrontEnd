@@ -1,0 +1,138 @@
+.page {
+  flex: 1;
+  padding: clamp(2.5rem, 7vw, 4.5rem) var(--gutter);
+}
+
+.inner {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.title {
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -0.03em;
+}
+
+.groupTitle {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Cada passagem é um canhoto: papel com borda tracejada à esquerda */
+.ticket {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2rem);
+  padding: 1rem clamp(1rem, 3vw, 1.5rem);
+  background: #fff;
+  border: 1.5px solid var(--concrete);
+  border-left: 4px dashed var(--signal);
+  border-radius: 12px;
+}
+
+.ticketPast {
+  opacity: 0.6;
+  border-left-color: var(--concrete);
+}
+
+.when {
+  display: flex;
+  flex-direction: column;
+}
+
+.time {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.date {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.routeName {
+  font-family: var(--display);
+  font-weight: 700;
+  font-stretch: 110%;
+  overflow-wrap: anywhere;
+}
+
+.code {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.fare {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  padding: clamp(2rem, 6vw, 3rem);
+  border: 1.5px dashed var(--concrete);
+  border-radius: 14px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.cta,
+.retry {
+  border: 0;
+  border-radius: 8px;
+  background: var(--signal);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 0.7rem 1.3rem;
+  cursor: pointer;
+}
+
+.cta:hover,
+.retry:hover {
+  background: var(--signal-bright);
+}
+
+@media (max-width: 560px) {
+  .ticket {
+    grid-template-columns: 1fr auto;
+  }
+
+  .route {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

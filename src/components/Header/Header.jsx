@@ -30,6 +30,15 @@ function Header() {
     if (status === 'authenticated') {
       return (
         <div className={styles.account}>
+          <Link className={`${styles.link} ${styles.accountLink}`} to="/minhas-passagens">
+            {/* No celular aparece só "Passagens". O texto completo continua
+                lá, escondido só visualmente, para o leitor de tela; o curto
+                tem aria-hidden para não ser lido em dobro. */}
+            <span className={styles.wide}>Minhas passagens</span>
+            <span className={styles.narrow} aria-hidden="true">
+              Passagens
+            </span>
+          </Link>
           <span className={styles.greeting}>
             {user ? `Olá, ${firstName(user.name)}` : 'Minha conta'}
           </span>

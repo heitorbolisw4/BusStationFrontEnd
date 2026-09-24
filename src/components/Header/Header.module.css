@@ -80,6 +80,27 @@
   .links {
     display: none;
   }
+
+  /* Sem espaço para saudação + link + Sair: fica o essencial */
+  .greeting {
+    display: none;
+  }
+
+  /* Esconde só visualmente: leitor de tela continua lendo "Minhas passagens" */
+  .wide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* .accountLink na frente: mais específico que o .narrow base, que
+     fica depois no arquivo e senão ganharia */
+  .accountLink .narrow {
+    display: inline;
+  }
 }
 
 /* <button> herda estilo do navegador; zera para parecer com o <a> de Entrar */
@@ -92,6 +113,14 @@ button.login {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+}
+
+.accountLink {
+  white-space: nowrap;
+}
+
+.narrow {
+  display: none;
 }
 
 .greeting {
