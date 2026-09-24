@@ -61,6 +61,13 @@ describe('apiFetch', () => {
     await expect(apiFetch('/me/password')).resolves.toBeNull()
   })
 
+  // Regressão achada no smoke E2E do staging: POST /register responde
+  // 201 sem corpo, e o client quebrava com "Unexpected end of JSON input".
+  it('devolve null em 201 sem corpo (POST /register)', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 201 }))
+    await expect(apiFetch('/register', { method: 'POST' })).resolves.toBeNull()
+  })
+
   it('transforma falha de rede em ApiError com status 0', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 

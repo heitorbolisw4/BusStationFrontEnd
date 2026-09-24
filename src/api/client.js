@@ -55,8 +55,10 @@ export async function apiFetch(path, { token, ...options } = {}) {
     throw new ApiError(response.status, await readErrorMessage(response))
   }
 
-  // 204 No Content não tem corpo; .json() estouraria.
-  if (response.status === 204) return null
-
-  return response.json()
+  // Sucesso sem corpo não é só 204: POST /register devolve 201 vazio
+  // (Results.Created() sem conteúdo). .json() em corpo vazio estoura
+  // "Unexpected end of JSON input" — e a tela mostraria erro para um
+  // cadastro que DEU CERTO. Lendo como texto, vazio vira null.
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
