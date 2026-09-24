@@ -11,4 +11,18 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  // Config do Vitest mora aqui mesmo: ele reaproveita os plugins do Vite
+  // (JSX, CSS Modules), então o teste compila o código igual ao navegador.
+  test: {
+    // jsdom simula DOM/window no Node — sem ele, render() não tem onde desenhar.
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    // A URL da API nos testes é fixa e falsa: nenhum teste unitário pode
+    // depender de uma API de verdade rodando.
+    env: { VITE_API_URL: 'http://api.test' },
+    coverage: {
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/main.jsx', 'src/test/**', 'src/data/**'],
+    },
+  },
 })
