@@ -81,3 +81,21 @@
     display: none;
   }
 }
+
+/* <button> herda estilo do navegador; zera para parecer com o <a> de Entrar */
+button.login {
+  background: transparent;
+  cursor: pointer;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.greeting {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+}

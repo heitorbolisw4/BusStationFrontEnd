@@ -13,13 +13,13 @@ function Footer() {
 
         <ul className={styles.links}>
           <li>
-            <a href="#saidas">Horários</a>
+            <a href="/#saidas">Horários</a>
           </li>
           <li>
-            <a href="#rotas">Rotas</a>
+            <a href="/#rotas">Rotas</a>
           </li>
           <li>
-            <a href="#ajuda">Ajuda</a>
+            <a href="/#ajuda">Ajuda</a>
           </li>
         </ul>
       </div>

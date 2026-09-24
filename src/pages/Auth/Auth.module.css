@@ -1,0 +1,127 @@
+/* Estilo compartilhado por /entrar e /cadastro: fundo verde do hero,
+   formulário num cartão de papel — o mesmo "bilhete" da busca. */
+
+.page {
+  position: relative;
+  flex: 1;
+  background: var(--ink);
+  padding: clamp(2.5rem, 7vw, 4.5rem) var(--gutter);
+}
+
+.page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    115deg,
+    transparent 0 38px,
+    rgba(242, 176, 61, 0.05) 38px 40px
+  );
+  pointer-events: none;
+}
+
+.inner {
+  position: relative;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-family: var(--mono);
+  font-size: 0.73rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 2px;
+  background: var(--signal);
+}
+
+.title {
+  margin-top: 0.9rem;
+  color: #fff;
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 800;
+  font-stretch: 112%;
+  letter-spacing: -0.035em;
+}
+
+.card {
+  margin-top: 2rem;
+  background: var(--paper);
+  border-radius: 14px;
+  padding: clamp(1.4rem, 4vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.notice,
+.formError {
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.notice {
+  background: rgba(242, 176, 61, 0.16);
+  color: var(--ink);
+}
+
+.formError {
+  background: rgba(180, 68, 44, 0.1);
+  color: var(--alert);
+}
+
+.submit {
+  border: 0;
+  border-radius: 8px;
+  background: var(--signal);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.98rem;
+  padding: 0.85rem 1.5rem;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--signal-bright);
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.slow {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.switch {
+  margin-top: 1.25rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+}
+
+.switch a {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.switch a:hover {
+  text-decoration: underline;
+}

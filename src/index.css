@@ -53,8 +53,12 @@ body {
   flex-direction: column;
 }
 
+/* main também é flex em coluna: assim uma página curta (ex.: /entrar)
+   pode esticar até o rodapé com flex: 1, sem deixar faixa vazia. */
 #root > main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 h1,

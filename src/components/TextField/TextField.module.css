@@ -1,0 +1,50 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Mesmo rótulo mono em caixa alta do bilhete de busca */
+.label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.input {
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid var(--concrete);
+  background: transparent;
+  border-radius: 0;
+  padding: 0.45rem 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  color: var(--ink);
+  transition: border-color 0.18s;
+}
+
+.input:hover {
+  border-bottom-color: var(--signal);
+}
+
+.inputError,
+.inputError:hover {
+  border-bottom-color: var(--alert);
+}
+
+.error,
+.hint {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+}
+
+.error {
+  color: var(--alert);
+}
+
+.hint {
+  color: var(--muted);
+}
