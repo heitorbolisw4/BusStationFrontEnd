@@ -3,6 +3,7 @@ import { apiFetch } from './client'
 import { listCities } from './cities'
 import { searchBoardings } from './boardings'
 import { getProfile, login, logout, refresh, register } from './auth'
+import { buyTicket, listTickets } from './tickets'
 
 // Aqui só interessa se cada função monta a rota certa — o comportamento
 // HTTP já é coberto em client.test.js. Por isso o apiFetch vira um dublê.
@@ -74,6 +75,20 @@ describe('funções de recurso da API', () => {
   it('getProfile chama GET /user/me com o token', async () => {
     await getProfile('jwt')
     expect(apiFetch).toHaveBeenCalledWith('/user/me', { token: 'jwt' })
+  })
+
+  it('buyTicket faz POST /tickets/create com token e boardingId', async () => {
+    await buyTicket('jwt', 12)
+    expect(apiFetch).toHaveBeenCalledWith('/tickets/create', {
+      method: 'POST',
+      token: 'jwt',
+      body: JSON.stringify({ boardingId: 12 }),
+    })
+  })
+
+  it('listTickets faz GET /tickets/list com token', async () => {
+    await listTickets('jwt')
+    expect(apiFetch).toHaveBeenCalledWith('/tickets/list', { token: 'jwt' })
   })
 
   it('devolve o que o apiFetch devolveu', async () => {
