@@ -1,0 +1,40 @@
+name: CI
+
+# Roda em todo PR e em todo push na main. O deploy (Vercel) é separado:
+# ele puxa o repo sozinho — este workflow só diz se o código está saudável.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Um push novo no mesmo PR cancela a execução anterior, que já ficou velha.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # npm ci (e não npm install): instala exatamente o que está no
+      # package-lock.json e falha se ele estiver fora de sincronia.
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run test:run
+
+      # O build de produção exige VITE_API_URL (ver vite.config.js).
+      # No CI qualquer URL serve: só queremos saber se o bundle compila.
+      - run: npm run build
+        env:
+          VITE_API_URL: https://api.example.invalid
