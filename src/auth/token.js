@@ -35,6 +35,25 @@ export function storeRefreshToken(refreshToken) {
   }
 }
 
+/* Trava entre ABAS para o /refresh.
+
+   O single-flight do AuthProvider (promise compartilhada) só vale dentro
+   de uma aba. Duas abas abertas leem o MESMO refresh token do
+   localStorage; se as duas chamarem /refresh com ele, a API entende como
+   roubo de token (reuso) e revoga todas as sessões do usuário.
+
+   Web Locks: o navegador garante que só uma aba por vez roda `fn`. Quem
+   chega depois espera — e, como `fn` relê o storage lá dentro, pega o
+   token que a primeira aba acabou de gravar, nunca o já usado.
+
+   Sem suporte (navegador antigo, jsdom nos testes), roda sem trava. */
+export function withRefreshLock(fn) {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request('busstation-refresh', fn)
+  }
+  return fn()
+}
+
 export function clearStoredRefreshToken() {
   try {
     localStorage.removeItem(STORAGE_KEY)

@@ -6,6 +6,7 @@ import {
   clearStoredRefreshToken,
   readStoredRefreshToken,
   storeRefreshToken,
+  withRefreshLock,
 } from './token'
 
 export const SESSION_EXPIRED_MESSAGE = 'Sua sessão expirou. Entre de novo para continuar.'
@@ -43,21 +44,23 @@ function AuthProvider({ children }) {
     setSession({ ...ANONYMOUS, sessionExpired: expired })
   }, [])
 
+  // Duas camadas contra /refresh duplicado:
+  // - refreshInFlightRef: várias chamadas NESTA aba dividem uma promise;
+  // - withRefreshLock: entre abas, uma de cada vez. O token é lido DENTRO
+  //   da trava e o novo é gravado antes de soltá-la, então a próxima aba
+  //   já encontra o token rotacionado no storage.
   const refreshAccessToken = useCallback(() => {
     if (!refreshInFlightRef.current) {
-      const refreshToken = readStoredRefreshToken()
-      refreshInFlightRef.current = (
-        refreshToken
-          ? authApi.refresh(refreshToken)
-          : Promise.reject(new ApiError(401, 'Sem refresh token.'))
-      )
-        .then((pair) => {
-          applyTokens(pair)
-          return pair.token
-        })
-        .finally(() => {
-          refreshInFlightRef.current = null
-        })
+      refreshInFlightRef.current = withRefreshLock(async () => {
+        const refreshToken = readStoredRefreshToken()
+        if (!refreshToken) throw new ApiError(401, 'Sem refresh token.')
+
+        const pair = await authApi.refresh(refreshToken)
+        applyTokens(pair)
+        return pair.token
+      }).finally(() => {
+        refreshInFlightRef.current = null
+      })
     }
     return refreshInFlightRef.current
   }, [applyTokens])

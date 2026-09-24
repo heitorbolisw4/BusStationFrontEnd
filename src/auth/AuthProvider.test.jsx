@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StrictMode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AuthProvider from './AuthProvider'
@@ -237,6 +238,79 @@ describe('AuthProvider', () => {
       expect(result.reason.message).toBe('Dont have seats')
       expect(authApi.refresh).not.toHaveBeenCalled()
       expect(text('status')).toBe('authenticated')
+    })
+  })
+
+  describe('refresh entre abas e em StrictMode', () => {
+    // jsdom não tem Web Locks: esta trava falsa enfileira quem chama, como
+    // o navegador faz entre abas (FIFO, um de cada vez).
+    function installFakeLocks() {
+      let tail = Promise.resolve()
+      const request = vi.fn((_name, fn) => {
+        const run = tail.then(() => fn())
+        tail = run.catch(() => {})
+        return run
+      })
+      Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true })
+      return request
+    }
+
+    // Refresh "lento" (um tick) que rotaciona: refresh-N → par N+1.
+    function rotatingRefresh() {
+      vi.mocked(authApi.refresh).mockImplementation(async (refreshToken) => {
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        const n = Number(refreshToken.split('-')[1])
+        return makePair(n + 1)
+      })
+    }
+
+    afterEach(() => {
+      delete navigator.locks
+    })
+
+    it('duas abas abrindo juntas nunca reusam o mesmo refresh token', async () => {
+      const lock = installFakeLocks()
+      storeRefreshToken('refresh-0')
+      rotatingRefresh()
+      vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+
+      // Duas "abas": dois Providers independentes, mesmo localStorage.
+      render(
+        <>
+          <AuthProvider><Probe /></AuthProvider>
+          <AuthProvider><Probe /></AuthProvider>
+        </>,
+      )
+
+      await vi.waitFor(() =>
+        expect(screen.getAllByTestId('status').map((el) => el.textContent)).toEqual([
+          'authenticated',
+          'authenticated',
+        ]),
+      )
+      // A 2ª aba esperou a trava e leu o token que a 1ª gravou. Cada aba
+      // precisa do próprio token de ACESSO (ele fica só em memória), por
+      // isso são dois /refresh — mas nenhum refresh token é usado 2 vezes.
+      const used = vi.mocked(authApi.refresh).mock.calls.map(([t]) => t)
+      expect(used).toEqual(['refresh-0', 'refresh-1'])
+      expect(new Set(used).size).toBe(used.length)
+      expect(lock).toHaveBeenCalledWith('busstation-refresh', expect.any(Function))
+      expect(readStoredRefreshToken()).toBe('refresh-2')
+    })
+
+    it('em StrictMode (efeito rodando 2x), o boot faz um /refresh só', async () => {
+      storeRefreshToken('refresh-0')
+      rotatingRefresh()
+      vi.mocked(authApi.getProfile).mockResolvedValue(PROFILE)
+
+      render(
+        <StrictMode>
+          <AuthProvider><Probe /></AuthProvider>
+        </StrictMode>,
+      )
+
+      expect(await screen.findByText('Maria Souza')).toBeInTheDocument()
+      expect(authApi.refresh).toHaveBeenCalledTimes(1)
     })
   })
 

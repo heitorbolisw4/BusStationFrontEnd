@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearStoredRefreshToken, readStoredRefreshToken, storeRefreshToken } from './token'
+import {
+  clearStoredRefreshToken,
+  readStoredRefreshToken,
+  storeRefreshToken,
+  withRefreshLock,
+} from './token'
 
 describe('storage do refresh token', () => {
   beforeEach(() => {
@@ -34,5 +39,23 @@ describe('storage do refresh token', () => {
     expect(readStoredRefreshToken()).toBeNull()
     expect(() => storeRefreshToken('x')).not.toThrow()
     expect(() => clearStoredRefreshToken()).not.toThrow()
+  })
+})
+
+describe('withRefreshLock', () => {
+  afterEach(() => {
+    delete navigator.locks
+  })
+
+  it('sem Web Locks (jsdom, navegador antigo), só executa a função', async () => {
+    await expect(withRefreshLock(async () => 'ok')).resolves.toBe('ok')
+  })
+
+  it('com Web Locks, executa dentro da trava "busstation-refresh"', async () => {
+    const request = vi.fn((_name, fn) => fn())
+    Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true })
+
+    await expect(withRefreshLock(async () => 'ok')).resolves.toBe('ok')
+    expect(request).toHaveBeenCalledWith('busstation-refresh', expect.any(Function))
   })
 })
