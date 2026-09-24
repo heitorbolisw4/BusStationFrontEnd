@@ -41,4 +41,3 @@ Vitest + Testing Library + jsdom, arquivos `*.test.js(x)` ao lado do código tes
   - Cold start: Render e Neon hibernam no plano free; a primeira requisição pode levar ~1 min. Depois de 5 s carregando, o site mostra um aviso em vez de parecer travado.
 
 Escopo completo: `docs/deploy/escopo-deploy.md` no repo raiz do projeto.
-# BusStationFrontEnd
