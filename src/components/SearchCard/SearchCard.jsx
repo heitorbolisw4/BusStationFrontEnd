@@ -1,10 +1,6 @@
 import { useState } from 'react'
+import { todayISO } from '../../utils/date'
 import styles from './SearchCard.module.css'
-
-function todayISO() {
-  // <input type="date"> só entende o formato aaaa-mm-dd
-  return new Date().toISOString().slice(0, 10)
-}
 
 // `onSearch` é uma função que vem de fora. O card não sabe (nem quer saber)
 // o que acontece com a busca — ele só avisa "o usuário pediu isto".
