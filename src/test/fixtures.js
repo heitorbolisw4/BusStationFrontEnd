@@ -22,3 +22,18 @@ export function makeDeparture(overrides = {}) {
     ...overrides,
   }
 }
+
+// JWT falso com o mesmo formato do da API (só o payload importa para o
+// front; a assinatura é lixo porque o front nunca a verifica).
+export function makeToken({ expiresInSeconds = 300, now = Date.now() } = {}) {
+  const encode = (obj) => btoa(JSON.stringify(obj)).replace(/=+$/, '')
+  const header = encode({ alg: 'HS256', typ: 'JWT' })
+  const payload = encode({
+    nameid: '3',
+    email: 'maria@example.com',
+    exp: Math.floor(now / 1000) + expiresInSeconds,
+  })
+  return `${header}.${payload}.assinatura-falsa`
+}
+
+export const PROFILE = { id: 3, name: 'Maria Souza', email: 'maria@example.com', age: 30 }
