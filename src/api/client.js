@@ -32,14 +32,16 @@ async function readErrorMessage(response) {
   }
 }
 
-export async function apiFetch(path, options = {}) {
+// `token` é opcional: rotas públicas não mandam, rotas de usuário logado
+// mandam o JWT no header Authorization, no formato "Bearer <token>".
+export async function apiFetch(path, { token, ...options } = {}) {
   let response
 
+  const headers = { 'Content-Type': 'application/json', ...options.headers }
+  if (token) headers.Authorization = `Bearer ${token}`
+
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...options.headers },
-    })
+    response = await fetch(`${BASE_URL}${path}`, { ...options, headers })
   } catch {
     // fetch só rejeita quando a requisição nem chega a acontecer:
     // API fora do ar, DNS, ou bloqueio de CORS.

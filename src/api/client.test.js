@@ -44,6 +44,18 @@ describe('apiFetch', () => {
     })
   })
 
+  it('com token, manda Authorization: Bearer; sem token, não manda o header', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(respondWith({})))
+
+    await apiFetch('/user/me', { token: 'abc.def.ghi' })
+    await apiFetch('/cities/list')
+
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer abc.def.ghi')
+    expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('Authorization')
+    // `token` é opção nossa, não do fetch: não pode vazar para ele.
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty('token')
+  })
+
   it('devolve null em 204 sem tentar ler corpo', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
     await expect(apiFetch('/me/password')).resolves.toBeNull()

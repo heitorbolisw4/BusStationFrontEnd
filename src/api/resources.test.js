@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiFetch } from './client'
 import { listCities } from './cities'
 import { searchBoardings } from './boardings'
+import { getProfile, login, register } from './auth'
 
 // Aqui só interessa se cada função monta a rota certa — o comportamento
 // HTTP já é coberto em client.test.js. Por isso o apiFetch vira um dublê.
@@ -33,6 +34,31 @@ describe('funções de recurso da API', () => {
     const query = new URLSearchParams(path.split('?')[1])
     expect(query.get('date')).toBe('a&b c')
     expect(query.get('destinationCityId')).toBe('2')
+  })
+
+  it('register faz POST /register com os quatro campos', async () => {
+    const data = { name: 'Maria', email: 'm@x.com', password: '123456', age: 30 }
+    await register(data)
+
+    expect(apiFetch).toHaveBeenCalledWith('/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  })
+
+  it('login faz POST /login e devolve só o token', async () => {
+    apiFetch.mockResolvedValue({ token: 'jwt' })
+
+    await expect(login({ email: 'm@x.com', password: '123456' })).resolves.toBe('jwt')
+    expect(apiFetch).toHaveBeenCalledWith('/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'm@x.com', password: '123456' }),
+    })
+  })
+
+  it('getProfile chama GET /user/me com o token', async () => {
+    await getProfile('jwt')
+    expect(apiFetch).toHaveBeenCalledWith('/user/me', { token: 'jwt' })
   })
 
   it('devolve o que o apiFetch devolveu', async () => {
