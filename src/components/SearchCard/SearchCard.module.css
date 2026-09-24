@@ -1,0 +1,149 @@
+/* drop-shadow (e não box-shadow) porque ele acompanha o recorte
+   da serrilha; box-shadow desenharia um retângulo reto embaixo. */
+.ticket {
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
+}
+
+.body {
+  background: var(--paper);
+  border-radius: 14px 14px 0 0;
+  padding: 1.5rem clamp(1.1rem, 3vw, 1.75rem) 1.65rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr 0.85fr auto;
+  align-items: end;
+  gap: clamp(0.85rem, 2vw, 1.35rem);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.control {
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid var(--concrete);
+  background: transparent;
+  border-radius: 0;
+  padding: 0.45rem 0;
+  font-size: 1.02rem;
+  font-weight: 500;
+  color: var(--ink);
+  transition: border-color 0.18s;
+}
+
+.control:hover {
+  border-bottom-color: var(--signal);
+}
+
+/* appearance:none remove a setinha nativa do select — por isso
+   desenhamos a nossa como background-image. */
+.select {
+  appearance: none;
+  padding-right: 1.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%230e2c24' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.15rem center;
+  background-size: 12px;
+  cursor: pointer;
+}
+
+.swap {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 2px solid var(--concrete);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    transform 0.25s,
+    border-color 0.18s;
+}
+
+.swap svg {
+  width: 20px;
+  height: 20px;
+}
+
+.swap:hover {
+  border-color: var(--ink);
+  transform: rotate(180deg);
+}
+
+.submit {
+  border: 0;
+  border-radius: 8px;
+  background: var(--signal);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.98rem;
+  padding: 0.85rem 1.5rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    transform 0.1s;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--signal-bright);
+}
+
+.submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hint {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  color: var(--alert);
+}
+
+/* A serrilha: cada "dente" é um círculo transparente recortado
+   da borda de baixo, repetido a cada 20px. */
+.perforation {
+  height: 13px;
+  background-image: radial-gradient(
+    circle at 10px 13px,
+    transparent 8.5px,
+    var(--paper) 9px
+  );
+  background-size: 20px 13px;
+  background-repeat: repeat-x;
+}
+
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+
+  .swap {
+    justify-self: end;
+    margin: -0.4rem 0;
+  }
+
+  .submit {
+    margin-top: 0.4rem;
+  }
+}

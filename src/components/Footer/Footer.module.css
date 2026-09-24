@@ -1,0 +1,49 @@
+.footer {
+  background: var(--ink-deep);
+  color: rgba(255, 255, 255, 0.62);
+  padding: clamp(2.5rem, 6vw, 3.5rem) var(--gutter) 2rem;
+}
+
+.inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.word {
+  font-family: var(--display);
+  font-weight: 800;
+  font-stretch: 108%;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.note {
+  margin-top: 0.4rem;
+  font-size: 0.88rem;
+  max-width: 34ch;
+}
+
+.links {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.links a:hover {
+  color: var(--signal);
+}
+
+.legal {
+  max-width: var(--maxw);
+  margin: 2.5rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.4);
+}

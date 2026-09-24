@@ -1,0 +1,142 @@
+.section {
+  padding: clamp(3.5rem, 8vw, 5.5rem) var(--gutter);
+}
+
+.inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+
+.head {
+  margin-bottom: 1.75rem;
+}
+
+/* Vazio, carregando e erro ocupam o mesmo bloco escuro da lista,
+   para a página não encolher e crescer a cada busca. */
+.state {
+  background: var(--ink);
+  border-radius: 16px;
+  padding: clamp(2.25rem, 6vw, 3.25rem);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.58);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.stateError {
+  color: var(--signal);
+}
+
+.title {
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -0.025em;
+}
+
+.sub {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.board {
+  background: var(--ink);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: clamp(0.9rem, 3vw, 2.5rem);
+  padding: 1.1rem clamp(1.1rem, 3vw, 1.9rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  color: #fff;
+  transition: background 0.16s;
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.row:hover {
+  background: var(--ink-soft);
+}
+
+.time {
+  font-family: var(--mono);
+  font-size: clamp(1.3rem, 3vw, 1.6rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--signal);
+}
+
+.leg {
+  min-width: 0;
+}
+
+.codes {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-stretch: 110%;
+  font-size: 1.02rem;
+  letter-spacing: 0.03em;
+}
+
+.arrow {
+  color: var(--signal);
+  font-weight: 400;
+}
+
+.meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.seats {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+}
+
+.seatsLow {
+  color: var(--signal);
+  border-color: rgba(242, 176, 61, 0.5);
+}
+
+.price {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: auto 1fr;
+    row-gap: 0.7rem;
+  }
+
+  .seats {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .price {
+    grid-column: 2;
+    justify-self: end;
+  }
+}

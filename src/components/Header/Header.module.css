@@ -1,0 +1,83 @@
+.header {
+  background: var(--ink);
+  padding: 1.15rem var(--gutter);
+}
+
+.inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 4vw, 3rem);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-right: auto;
+}
+
+/* O "mark" imita a sigla estampada na lateral do ônibus */
+.mark {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: var(--signal);
+  padding: 0.3rem 0.45rem;
+  border-radius: 4px;
+}
+
+.word {
+  font-family: var(--display);
+  font-weight: 800;
+  font-stretch: 108%;
+  letter-spacing: -0.02em;
+  font-size: 1.15rem;
+  color: #fff;
+}
+
+.links {
+  display: flex;
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+.link {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.68);
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.18s,
+    border-color 0.18s;
+}
+
+.link:hover {
+  color: #fff;
+  border-bottom-color: var(--signal);
+}
+
+.login {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 0.45rem 1.15rem;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+
+.login:hover {
+  border-color: var(--signal);
+  background: rgba(242, 176, 61, 0.12);
+}
+
+@media (max-width: 700px) {
+  .links {
+    display: none;
+  }
+}
