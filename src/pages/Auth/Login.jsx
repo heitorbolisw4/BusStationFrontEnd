@@ -10,9 +10,11 @@ function Login() {
   const { status, login, sessionExpired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  // Quem mandou o usuário para cá (ex.: a compra, no futuro) deixa em
+  // Quem mandou o usuário para cá (a compra, minhas passagens) deixa em
   // `state.from` para onde voltar depois de entrar.
   const from = location.state?.from ?? '/'
+  // Veio do botão "Comprar" sem estar logado: explica por que está aqui.
+  const cameToBuy = location.state?.reason === 'purchase'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -63,6 +65,12 @@ function Login() {
             </p>
           )}
 
+          {cameToBuy && !sessionExpired && (
+            <p className={styles.notice} role="status">
+              Entre ou crie uma conta para comprar sua passagem.
+            </p>
+          )}
+
           {formError && (
             <p className={styles.formError} role="alert">
               {formError}
@@ -100,7 +108,7 @@ function Login() {
 
         <p className={styles.switch}>
           Ainda não tem conta?{' '}
-          <Link to="/cadastro" state={{ from }}>
+          <Link to="/cadastro" state={location.state}>
             Criar conta
           </Link>
         </p>

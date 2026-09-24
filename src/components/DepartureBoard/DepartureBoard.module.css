@@ -124,10 +124,96 @@
   white-space: nowrap;
 }
 
+/* Linha com botão de compra ganha uma 5ª coluna */
+.rowWithAction {
+  grid-template-columns: auto 1fr auto auto auto;
+}
+
+.action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.buy,
+.cancel {
+  border-radius: 8px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.55rem 1rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.buy {
+  border: 0;
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.buy:hover:not(:disabled) {
+  background: var(--signal-bright);
+}
+
+.buy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cancel {
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: #fff;
+}
+
+.cancel:hover {
+  border-color: #fff;
+}
+
+.bought {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--signal);
+  white-space: nowrap;
+}
+
+/* Mensagem da compra ocupa a linha inteira, embaixo dos dados */
+.feedback {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.feedback a {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.feedbackError {
+  color: #ff9c85;
+}
+
 @media (max-width: 720px) {
-  .row {
+  .row,
+  .rowWithAction {
     grid-template-columns: auto 1fr;
     row-gap: 0.7rem;
+  }
+
+  .action {
+    grid-column: 1 / -1;
+  }
+
+  .action > *,
+  .actions > * {
+    flex: 1;
   }
 
   .seats {

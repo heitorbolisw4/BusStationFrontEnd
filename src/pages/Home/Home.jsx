@@ -1,10 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import SearchCard from '../../components/SearchCard/SearchCard'
 import DepartureBoard from '../../components/DepartureBoard/DepartureBoard'
 import { listCities } from '../../api/cities'
 import { searchBoardings } from '../../api/boardings'
+import { buyTicket } from '../../api/tickets'
+import { useAuth } from '../../auth/auth-context'
 import { useSlowFlag } from '../../hooks/useSlowFlag'
+import { readLastSearch, saveLastSearch } from '../../utils/lastSearch'
 import styles from './Home.module.css'
+
+// Traduz o erro da compra para o que o usuário precisa saber/fazer.
+function purchaseErrorMessage(error) {
+  if (error.status === 400 && /seat/i.test(error.message)) {
+    return 'Esgotou: não há mais vagas nesta saída.'
+  }
+  if (error.status === 404) {
+    return 'Esta saída não está mais disponível. Faça a busca de novo.'
+  }
+  return error.message
+}
 
 const SLOW_MESSAGE =
   'O servidor está acordando — a primeira consulta do dia pode levar até 1 minuto.'
@@ -27,6 +42,15 @@ function Home() {
   // useRef guarda um valor entre renders SEM causar re-render quando muda —
   // é o lugar certo para controle interno que a tela não exibe.
   const searchIdRef = useRef(0)
+
+  const { status: authStatus, request } = useAuth()
+  const navigate = useNavigate()
+  // Compra em andamento — no máximo uma por vez (formato no DepartureBoard).
+  const [purchase, setPurchase] = useState(null)
+
+  // Última busca desta aba (ex.: antes de ir fazer login). Lida uma vez.
+  const [lastSearch] = useState(() => readLastSearch())
+  const restoredRef = useRef(false)
 
   // Cold start da API em staging: depois de alguns segundos em "carregando",
   // a tela explica a demora em vez de parecer travada.
@@ -74,6 +98,8 @@ function Home() {
     searchIdRef.current = requestId
 
     setSearchStatus('loading')
+    setPurchase(null)
+    saveLastSearch(params)
 
     searchBoardings(params)
       .then((data) => {
@@ -85,6 +111,55 @@ function Home() {
         if (requestId !== searchIdRef.current) return
         setSearchError(error.message)
         setSearchStatus('error')
+      })
+  }
+
+  // Voltou para a Home com uma busca salva (ex.: depois do login): refaz
+  // assim que as cidades chegam. Aqui é efeito mesmo — a causa é "a tela
+  // abriu", não um clique. O ref garante que roda uma vez só.
+  useEffect(() => {
+    if (status !== 'ready' || !lastSearch || restoredRef.current) return
+    restoredRef.current = true
+    handleSearch(lastSearch)
+    // handleSearch fica fora das dependências de propósito: ela é recriada a
+    // cada render, e aqui só interessa reagir às cidades chegando.
+  }, [status, lastSearch])
+
+  function handleBuy(departure) {
+    // Deslogado: vai para o login e volta para cá depois. A busca foi
+    // salva no sessionStorage e é refeita quando a Home abrir de novo.
+    if (authStatus === 'anonymous') {
+      navigate('/entrar', { state: { from: '/', reason: 'purchase' } })
+      return
+    }
+    setPurchase({ boardingId: departure.boardingId, status: 'confirming' })
+  }
+
+  function handleConfirm(departure) {
+    const { boardingId } = departure
+    setPurchase({ boardingId, status: 'buying' })
+
+    request((token) => buyTicket(token, boardingId))
+      .then(() => {
+        setPurchase({ boardingId, status: 'done' })
+        // A API já tirou a vaga; espelhamos na tela sem buscar tudo de novo.
+        setDepartures((current) =>
+          current.map((d) => (d.boardingId === boardingId ? { ...d, seats: d.seats - 1 } : d)),
+        )
+      })
+      .catch((error) => {
+        // Sessão acabou e o refresh falhou: o AuthProvider já deslogou;
+        // o login explica "sessão expirou" e traz o usuário de volta.
+        if (error.status === 401) {
+          navigate('/entrar', { state: { from: '/' } })
+          return
+        }
+        if (error.status === 400 && /seat/i.test(error.message)) {
+          setDepartures((current) =>
+            current.map((d) => (d.boardingId === boardingId ? { ...d, seats: 0 } : d)),
+          )
+        }
+        setPurchase({ boardingId, status: 'error', message: purchaseErrorMessage(error) })
       })
   }
 
@@ -131,6 +206,7 @@ function Home() {
         cities={cities}
         onSearch={handleSearch}
         isSearching={searchStatus === 'loading'}
+        initialValues={lastSearch}
       />
     )
   }
@@ -162,6 +238,10 @@ function Home() {
         status={searchStatus}
         errorMessage={searchError}
         loadingMessage={searchSlow ? SLOW_MESSAGE : undefined}
+        purchase={purchase}
+        onBuy={handleBuy}
+        onConfirm={handleConfirm}
+        onCancel={() => setPurchase(null)}
       />
     </>
   )

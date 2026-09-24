@@ -1,27 +1,100 @@
+import { Link } from 'react-router'
+import { formatPrice, hourAndMinute } from '../../utils/format'
 import styles from './DepartureBoard.module.css'
 
-// Criado uma vez só, fora do componente: formatador de moeda do navegador.
-const brl = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
-
-// A API manda TimeOnly como "05:40:00". O painel só quer hora e minuto —
-// mas o valor cru continua indo no atributo dateTime do <time>, que é
-// para leitor de tela e robô, não para humano.
-function hourAndMinute(time) {
-  return time.slice(0, 5)
+function seatsLabel(seats) {
+  if (seats <= 0) return 'Esgotado'
+  return `${seats} ${seats === 1 ? 'vaga' : 'vagas'}`
 }
 
-// O componente não busca nada: recebe o resultado pronto e o estado da
-// busca. Quem chama a API é a Home. Assim este arquivo continua sendo
-// só "como isto aparece na tela", e dá para testá-lo sem servidor.
+// O componente não busca nem compra nada: recebe o resultado pronto, o
+// estado da busca e o estado da compra. Quem chama a API é a Home. Assim
+// este arquivo continua sendo só "como isto aparece na tela", e dá para
+// testá-lo sem servidor.
+//
+// `purchase` descreve a compra em andamento (no máximo uma por vez):
+//   { boardingId, status: 'confirming' | 'buying' | 'done' | 'error', message? }
+// `onBuy` / `onConfirm` / `onCancel` avisam a Home do clique. Sem `onBuy`,
+// o painel é só leitura (sem coluna de ação).
 function DepartureBoard({
   departures,
   status,
   errorMessage,
   loadingMessage = 'Procurando saídas…',
+  purchase = null,
+  onBuy,
+  onConfirm,
+  onCancel,
 }) {
+  function renderAction(departure) {
+    const time = hourAndMinute(departure.boardingTime)
+    const isThisRow = purchase?.boardingId === departure.boardingId
+
+    if (isThisRow && purchase.status === 'confirming') {
+      // Confirmação em dois cliques: ainda não existe cancelamento de
+      // passagem na API, então compra errada não tem volta.
+      return (
+        <div className={styles.actions}>
+          <button type="button" className={styles.buy} onClick={() => onConfirm(departure)}>
+            Confirmar {formatPrice(departure.price)}
+          </button>
+          <button type="button" className={styles.cancel} onClick={onCancel}>
+            Cancelar
+          </button>
+        </div>
+      )
+    }
+
+    if (isThisRow && purchase.status === 'buying') {
+      return (
+        <button type="button" className={styles.buy} disabled>
+          Comprando…
+        </button>
+      )
+    }
+
+    if (isThisRow && purchase.status === 'done') {
+      return <span className={styles.bought}>Comprada ✓</span>
+    }
+
+    return (
+      <button
+        type="button"
+        className={styles.buy}
+        onClick={() => onBuy(departure)}
+        // Uma compra por vez: enquanto uma está no ar, as outras esperam.
+        disabled={departure.seats <= 0 || purchase?.status === 'buying'}
+        // Vários botões "Comprar" iguais na tela: o aria-label diz ao
+        // leitor de tela QUAL saída cada um compra.
+        aria-label={`Comprar passagem das ${time}`}
+      >
+        Comprar
+      </button>
+    )
+  }
+
+  function renderFeedback(departure) {
+    if (purchase?.boardingId !== departure.boardingId) return null
+
+    if (purchase.status === 'done') {
+      return (
+        <p className={styles.feedback} role="status">
+          Passagem comprada! <Link to="/minhas-passagens">Ver minhas passagens</Link>
+        </p>
+      )
+    }
+
+    if (purchase.status === 'error') {
+      return (
+        <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
+          {purchase.message}
+        </p>
+      )
+    }
+
+    return null
+  }
+
   function renderBody() {
     if (status === 'idle') {
       return (
@@ -65,7 +138,12 @@ function DepartureBoard({
             // key precisa ser estável e única dentro da lista: é como o
             // React sabe que a linha 3 continua sendo a mesma linha 3
             // depois de uma nova busca. Índice do array não serve.
-            <li key={departure.boardingId} className={styles.row}>
+            <li
+              key={departure.boardingId}
+              className={onBuy ? `${styles.row} ${styles.rowWithAction}` : styles.row}
+            >
+              {/* O valor cru ("05:40:00") vai no atributo dateTime, que é
+                  para leitor de tela e robô; o texto é para humano. */}
               <time className={styles.time} dateTime={departure.boardingTime}>
                 {hourAndMinute(departure.boardingTime)}
               </time>
@@ -87,10 +165,14 @@ function DepartureBoard({
                   isLow ? `${styles.seats} ${styles.seatsLow}` : styles.seats
                 }
               >
-                {departure.seats} {departure.seats === 1 ? 'vaga' : 'vagas'}
+                {seatsLabel(departure.seats)}
               </span>
 
-              <span className={styles.price}>{brl.format(departure.price)}</span>
+              <span className={styles.price}>{formatPrice(departure.price)}</span>
+
+              {onBuy && <div className={styles.action}>{renderAction(departure)}</div>}
+
+              {renderFeedback(departure)}
             </li>
           )
         })}

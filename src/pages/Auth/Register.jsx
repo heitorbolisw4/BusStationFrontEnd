@@ -128,7 +128,7 @@ function Register() {
 
         <p className={styles.switch}>
           Já tem conta?{' '}
-          <Link to="/entrar" state={{ from }}>
+          <Link to="/entrar" state={location.state}>
             Entrar
           </Link>
         </p>

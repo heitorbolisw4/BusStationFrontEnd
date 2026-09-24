@@ -5,7 +5,16 @@ import styles from './SearchCard.module.css'
 // `onSearch` é uma função que vem de fora. O card não sabe (nem quer saber)
 // o que acontece com a busca — ele só avisa "o usuário pediu isto".
 // Quem decide o que fazer é a Home, que é dona do resultado.
-function SearchCard({ cities, onSearch, isSearching }) {
+// Valor inicial de um select: o salvo, se a cidade ainda existir na lista;
+// senão, a cidade na posição `fallbackIndex`.
+function initialCityId(cities, savedId, fallbackIndex) {
+  const exists = cities.some((city) => city.id === savedId)
+  return String(exists ? savedId : cities[fallbackIndex].id)
+}
+
+// `initialValues` (opcional) pré-preenche o formulário — é como a Home
+// devolve a última busca depois que o usuário volta do login.
+function SearchCard({ cities, onSearch, isSearching, initialValues }) {
   // useState devolve um par: [valor atual, função que troca o valor].
   // Trocar o valor é o que faz o React redesenhar a tela.
   //
@@ -13,9 +22,13 @@ function SearchCard({ cities, onSearch, isSearching }) {
   // ignorado nos seguintes. Por isso a Home só monta este componente
   // depois que as cidades chegaram: se montasse antes, o valor inicial
   // seria vazio e nunca se corrigiria sozinho.
-  const [originId, setOriginId] = useState(() => String(cities[0].id))
-  const [destinationId, setDestinationId] = useState(() => String(cities[1].id))
-  const [date, setDate] = useState(todayISO)
+  const [originId, setOriginId] = useState(() =>
+    initialCityId(cities, initialValues?.originCityId, 0),
+  )
+  const [destinationId, setDestinationId] = useState(() =>
+    initialCityId(cities, initialValues?.destinationCityId, 1),
+  )
+  const [date, setDate] = useState(() => initialValues?.date ?? todayISO())
 
   // Valor derivado: não precisa de state próprio, é só uma conta
   // feita a cada render em cima do state que já existe.
